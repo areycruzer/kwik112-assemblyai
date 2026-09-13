@@ -16,6 +16,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VoiceProvider, useVoice } from '@humeai/voice-react';
+import { useAssemblyVoiceAgent } from '@/lib/useAssemblyVoiceAgent.ts';
+import { assemblySessionConfig } from '@/lib/voice-launch';
+import type { AssemblyAction } from '@/lib/assembly-voice.ts';
 import {
   Phone,
   PhoneOff,
@@ -181,6 +184,14 @@ function CallStation({
   // can enter a render-phase update loop in suspended/throttled WebViews when
   // the component subscribes to it, which freezes the whole station. The mic
   // level meter is cosmetic; live transcription and prosody do not need it.
+  // AssemblyAI live-call state (declared early; the controller below and the
+  // transcript display both read them).
+  const aaiLinesRef = useRef<TranscriptLine[]>([]);
+  const [aaiLines, setAaiLines] = useState<TranscriptLine[]>([]);
+  const [aaiInterim, setAaiInterim] = useState<string | null>(null);
+  const [aaiAgentSpeaking, setAaiAgentSpeaking] = useState(false);
+  const finishAssemblyCallRef = useRef<() => void>(() => {});
+
   const {
     connect,
     disconnect,
@@ -216,7 +227,7 @@ function CallStation({
   const [scriptedFrames, setScriptedFrames] = useState<Record<string, number>[]>([]);
   // Which kind of session produced the readings on screen. Drives the MEASURED
   // vs SIMULATED labelling of the emotion panel — the two must never be confused.
-  const [sessionKind, setSessionKind] = useState<'live' | 'scripted' | null>(null);
+  const [sessionKind, setSessionKind] = useState<'live' | 'assembly' | 'scripted' | null>(null);
   const [scriptedLanguage, setScriptedLanguage] = useState<string | undefined>();
   const startedAt = useRef<number>(0);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -317,7 +328,11 @@ function CallStation({
   }, [messages]);
 
   // The HUD shows whichever transcript this session produced.
-  const displayLines = lines.length ? lines : scriptedLines;
+  const displayLines = sessionKind === 'assembly'
+    ? aaiLines
+    : lines.length
+      ? lines
+      : scriptedLines;
 
   // Live socket frames win; otherwise fall back to the scripted demo frames.
   const activeFrames = frames.length ? frames : scriptedFrames;
@@ -378,6 +393,7 @@ function CallStation({
 
   useEffect(() => {
     if (phase !== 'live' && phase !== 'scripted') return;
+    if (sessionKind === 'assembly') return; // the assembly controller publishes its own updates
     const transcript = phase === 'live' ? lines : scriptedLines;
     if (!transcript.length) return;
     const fingerprint = liveCallTranscriptFingerprint(transcript);
@@ -433,6 +449,65 @@ function CallStation({
   // restored to the trigger on close — the same behaviour IncidentTimeline uses,
   // from the one shared hook so the two dialogs cannot diverge.
   const { dialogRef, onKeyDown } = useDialogFocus(true, closeStation);
+
+  // ── AssemblyAI live demo call ────────────────────────────────────────────
+  // The active live path: a Voice Agent API session with no prosody (source
+  // 'absent'). The Hume path below stays available but is not advertised.
+  const handleAgentAction = useCallback((action: AssemblyAction) => {
+    if (action.kind === 'ready') {
+      startedAt.current = Date.now();
+      setDuration(0);
+      beginLiveCallEvent('absent');
+      setPhase('live');
+      logger.info('AssemblyAI agent session ready');
+    } else if (action.kind === 'user_partial') {
+      setAaiInterim(action.text);
+    } else if (action.kind === 'user_final' || action.kind === 'agent_final') {
+      setAaiInterim(null);
+      const line: TranscriptLine = {
+        role: action.kind === 'user_final' ? 'user' : 'assistant',
+        text: action.text,
+        timestamp: new Date().toISOString(),
+      };
+      aaiLinesRef.current = [...aaiLinesRef.current, line];
+      setAaiLines(aaiLinesRef.current);
+      publishLiveCallEvent('update', aaiLinesRef.current, 'absent');
+    } else if (action.kind === 'reply_started') {
+      setAaiAgentSpeaking(true);
+    } else if (action.kind === 'reply_done' || action.kind === 'barge_in') {
+      setAaiAgentSpeaking(false);
+    } else if (action.kind === 'ended') {
+      finishAssemblyCallRef.current();
+    } else if (action.kind === 'error') {
+      setErrorText(`The AssemblyAI session failed: ${action.message}`);
+      setSessionKind(null);
+      setPhase('error');
+    }
+  }, [beginLiveCallEvent, publishLiveCallEvent]);
+
+  const assemblyAgent = useAssemblyVoiceAgent(handleAgentAction);
+
+  const startAssemblyCall = useCallback(async () => {
+    const attempt = connectionAttemptRef.current + 1;
+    connectionAttemptRef.current = attempt;
+    setErrorText(null);
+    clearScriptTimers();
+    setScriptedLines([]);
+    setScriptedFrames([]);
+    aaiLinesRef.current = [];
+    setAaiLines([]);
+    setAaiInterim(null);
+    setSessionKind('assembly');
+    setPhase('connecting');
+    try {
+      await assemblyAgent.start({ config: assemblySessionConfig() });
+    } catch (error) {
+      if (attempt !== connectionAttemptRef.current) return;
+      setErrorText(error instanceof Error ? error.message : 'Could not start the AssemblyAI agent.');
+      setSessionKind(null);
+      setPhase('error');
+    }
+  }, [assemblyAgent, clearScriptTimers]);
 
   const startLiveCall = useCallback(async () => {
     const attempt = connectionAttemptRef.current + 1;
@@ -502,7 +577,7 @@ function CallStation({
       payloadLines: TranscriptLine[],
       emotionFrames: Record<string, number>[],
       seconds: number,
-      prosodySource: 'measured' | 'simulated',
+      prosodySource: 'measured' | 'simulated' | 'absent',
       // The language Hume detected in the caller's speech. Undefined on scripted
       // demos — a scripted call detected nothing, so it carries no language.
       detectedLanguage?: string,
@@ -598,6 +673,25 @@ function CallStation({
     }
     await triageAndPublish(phone, lines, frames, seconds, 'measured', detectedLanguage);
   }, [disconnect, lines, frames, detectedLanguage, phone, triageAndPublish, publishLiveCallEvent]);
+
+  const finishAssemblyCall = useCallback(async () => {
+    const seconds = Math.max(1, Math.round((Date.now() - startedAt.current) / 1000));
+    publishLiveCallEvent('end', aaiLinesRef.current, 'absent');
+    if (aaiLinesRef.current.length === 0) {
+      setErrorText('The call ended before anything was said, so there is nothing to triage.');
+      setSessionKind(null);
+      setPhase('error');
+      return;
+    }
+    await triageAndPublish(phone, aaiLinesRef.current, [], seconds, 'absent');
+  }, [phone, triageAndPublish, publishLiveCallEvent]);
+  finishAssemblyCallRef.current = () => { void finishAssemblyCall(); };
+
+  const endAssemblyCall = useCallback(async () => {
+    assemblyAgent.stop();
+    // session.ended arrives asynchronously; give it a moment before closing.
+    setTimeout(() => { void finishAssemblyCall(); }, 800);
+  }, [assemblyAgent, finishAssemblyCall]);
 
   /**
    * Run a scripted caller through the same backend triage as a live call, but
@@ -759,7 +853,7 @@ function CallStation({
             {phase === 'idle' || phase === 'error' ? (
               <>
                 <button
-                  onClick={startLiveCall}
+                  onClick={() => void startAssemblyCall()}
                   className="flex w-full items-center justify-center gap-2 rounded-md bg-critical px-3 py-3 text-xs font-bold uppercase tracking-wide text-ink hover:bg-critical-bright"
                 >
                   <Phone className="h-4 w-4" />
@@ -806,7 +900,7 @@ function CallStation({
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={endLiveCall}
+                    onClick={() => (sessionKind === 'assembly' ? void endAssemblyCall() : void endLiveCall())}
                     className="flex flex-1 items-center justify-center gap-2 rounded-md border border-critical/30 bg-panel-raised px-3 py-3 text-xs font-bold uppercase tracking-wide text-ink hover:bg-critical"
                   >
                     <PhoneOff className="h-4 w-4" />
@@ -997,7 +1091,7 @@ function CallStation({
               ref={transcriptRef}
               className="max-h-[280px] min-h-[200px] flex-1 space-y-2 overflow-y-auto rounded-md border border-rule bg-panel p-3 text-sm"
             >
-              {displayLines.length === 0 && !(phase === 'live' && interimText.trim()) ? (
+              {displayLines.length === 0 && !(phase === 'live' && (interimText.trim() || aaiInterim?.trim())) ? (
                 <div className="flex h-full items-center justify-center px-4 text-center text-xs text-ink-4">
                   {phase === 'live'
                     ? 'Connected. Speak into the microphone — the transcript appears here.'
