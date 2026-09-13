@@ -10,7 +10,7 @@
  *         transcript.user.delta { text: full-so-far },
  *         transcript.agent.delta { delta: append, reply_id },
  *         transcript.user { text }, transcript.agent { text, reply_id },
- *         tool.call { tool_call_id, name, arguments },
+ *         tool.call { call_id, name, arguments },
  *         session.ended, session.error { code, message }
  *
  * Everything here is pure and unit-tested; the React hook and the audio
@@ -65,11 +65,11 @@ export function bytesToBase64(bytes: Uint8Array): string {
 
 export interface AssemblyToolDef {
   type: 'function';
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>; // JSON Schema
-  };
+  name: string;
+  description: string;
+  /** JSON Schema for the arguments (flat shape — verified live: the
+   *  OpenAI-style {function:{…}} wrapper is rejected with invalid_value). */
+  parameters: Record<string, unknown>;
 }
 
 export interface AssemblySessionConfig {
@@ -155,7 +155,9 @@ export function reduceAgentEvent(state: ReducerState, msg: any): { state: Reduce
     case 'tool.call':
       return {
         state: next,
-        action: { kind: 'tool_call', toolCallId: msg.tool_call_id, name: msg.name, args: msg.arguments },
+        // Docs name the field call_id on the wire; accept tool_call_id too
+        // in case the dashboard-agent path ever differs.
+        action: { kind: 'tool_call', toolCallId: msg.call_id ?? msg.tool_call_id, name: msg.name, args: msg.arguments },
       };
     case 'session.ended':
       return { state: next, action: { kind: 'ended' } };
@@ -171,13 +173,15 @@ export function reduceAgentEvent(state: ReducerState, msg: any): { state: Reduce
 /**
  * Client tools may only answer once `reply.done` is the latest event received
  * (protocol constraint). Results queued earlier are flushed when reply.done
- * arrives; anything still queued at session end is dropped with the session.
+ * arrives, and a result pushed after reply.done already fired flushes
+ * immediately; anything still queued at session end is dropped with the
+ * session.
  */
 export class ToolResultQueue {
-  private pending: Array<{ tool_call_id: string; output: unknown }> = [];
+  private pending: Array<{ callId: string; output: unknown }> = [];
   private lastEventType: string | null = null;
 
-  observe(eventType: string): Array<{ tool_call_id: string; output: unknown }> {
+  observe(eventType: string): Array<{ callId: string; output: unknown }> {
     this.lastEventType = eventType;
     if (eventType === 'reply.done') {
       const flushed = this.pending;
@@ -187,9 +191,15 @@ export class ToolResultQueue {
     return [];
   }
 
-  push(toolCallId: string, output: unknown): number {
-    this.pending.push({ tool_call_id: toolCallId, output });
-    return this.pending.length;
+  push(callId: string, output: unknown): Array<{ callId: string; output: unknown }> {
+    this.pending.push({ callId, output });
+    // The tool may finish after reply.done already fired — answer at once.
+    if (this.lastEventType === 'reply.done') {
+      const flushed = this.pending;
+      this.pending = [];
+      return flushed;
+    }
+    return [];
   }
 
   get size(): number {
@@ -197,8 +207,10 @@ export class ToolResultQueue {
   }
 }
 
-export function buildToolResult(toolCallId: string, output: unknown) {
-  return { type: 'tool.result' as const, tool_call_id: toolCallId, output };
+/** Wire shape per the client-tools docs: result is a JSON string under
+ *  `result`, addressed by `call_id`. */
+export function buildToolResult(callId: string, output: unknown) {
+  return { type: 'tool.result' as const, call_id: callId, result: JSON.stringify(output) };
 }
 
 // AudioWorklet processors are compiled by the browser as plain JavaScript:

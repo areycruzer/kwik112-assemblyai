@@ -123,16 +123,20 @@ export function useAssemblyVoiceAgent(onAction: (action: AssemblyAction) => void
         }
 
         // Client tools answer only once reply.done is the latest event.
-        if (msg.type === 'tool.call' && msg.tool_call_id) {
+        if (msg.type === 'tool.call' && (msg.call_id ?? msg.tool_call_id)) {
           void Promise.resolve(
             onToolCallRef.current?.(msg.name, msg.arguments) ?? { error: 'no handler' }
           ).then((output) => {
-            toolQueueRef.current.push(msg.tool_call_id, output);
+            // push() itself flushes when reply.done already fired (slow tool,
+            // fast agent) — the result must not wait for a turn that exists.
+            for (const item of toolQueueRef.current.push(msg.call_id ?? msg.tool_call_id, output)) {
+              send(buildToolResult(item.callId, item.output));
+            }
           });
         }
         if (msg.type === 'reply.done') {
           const flushed = toolQueueRef.current.observe('reply.done');
-          for (const item of flushed) send(buildToolResult(item.tool_call_id, item.output));
+          for (const item of flushed) send(buildToolResult(item.callId, item.output));
         } else if (typeof msg.type === 'string') {
           toolQueueRef.current.observe(msg.type);
         }

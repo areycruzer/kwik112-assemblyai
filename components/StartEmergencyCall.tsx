@@ -30,6 +30,7 @@ import {
   Loader2,
   AlertTriangle,
   Play,
+  ShieldAlert,
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { EmergencyCall } from '@/lib/types';
@@ -55,6 +56,7 @@ import {
   emergencyVoiceConnectSettings,
   emergencyVoiceSessionSettings,
 } from '@/lib/voice-launch';
+import { localTriage, reconcileAgentProposal, type AgentIncidentProposal } from '@/lib/triage';
 import { readApiJson } from '@/lib/api-response';
 
 interface StartEmergencyCallProps {
@@ -190,6 +192,13 @@ function CallStation({
   const [aaiLines, setAaiLines] = useState<TranscriptLine[]>([]);
   const [aaiInterim, setAaiInterim] = useState<string | null>(null);
   const [aaiAgentSpeaking, setAaiAgentSpeaking] = useState(false);
+  // Latest propose_incident_update reconciliation: what the agent proposed,
+  // what was actually applied, and whether the floor overrode it.
+  const [proposalBanner, setProposalBanner] = useState<{
+    proposed: string | null;
+    applied: string;
+    blocked: boolean;
+  } | null>(null);
   const finishAssemblyCallRef = useRef<() => void>(() => {});
 
   const {
@@ -487,6 +496,42 @@ function CallStation({
 
   const assemblyAgent = useAssemblyVoiceAgent(handleAgentAction);
 
+  // The escalate-only client tool. The agent proposes; reconcileAgentProposal
+  // validates every field and lets severity move up only — the deterministic
+  // floor overrules any downgrade. The returned payload tells the agent what
+  // was applied, never what to say.
+  const handleAssemblyToolCall = useCallback((name: string, args: unknown) => {
+    if (name !== 'propose_incident_update') {
+      logger.warn('Unknown AssemblyAI client tool called', { name });
+      return { error: 'unknown tool' };
+    }
+    const callerText = aaiLinesRef.current
+      .filter((line) => line.role === 'user')
+      .map((line) => line.text)
+      .join('\n');
+    const floor = localTriage(callerText);
+    const rec = reconcileAgentProposal(
+      floor.extraction.severity,
+      (args ?? {}) as AgentIncidentProposal,
+    );
+    setProposalBanner({
+      proposed: rec.proposedSeverity,
+      applied: rec.severity,
+      blocked: rec.blocked,
+    });
+    logger.info('Agent incident proposal reconciled', {
+      proposed: rec.proposedSeverity,
+      applied: rec.severity,
+      blocked: rec.blocked,
+      floor: floor.extraction.severity,
+    });
+    return {
+      applied_severity: rec.severity,
+      held_at_floor: rec.blocked,
+      ...(rec.blocked ? { floor_severity: floor.extraction.severity } : {}),
+    };
+  }, []);
+
   const startAssemblyCall = useCallback(async () => {
     const attempt = connectionAttemptRef.current + 1;
     connectionAttemptRef.current = attempt;
@@ -497,17 +542,18 @@ function CallStation({
     aaiLinesRef.current = [];
     setAaiLines([]);
     setAaiInterim(null);
+    setProposalBanner(null);
     setSessionKind('assembly');
     setPhase('connecting');
     try {
-      await assemblyAgent.start({ config: assemblySessionConfig() });
+      await assemblyAgent.start({ config: assemblySessionConfig(), onToolCall: handleAssemblyToolCall });
     } catch (error) {
       if (attempt !== connectionAttemptRef.current) return;
       setErrorText(error instanceof Error ? error.message : 'Could not start the AssemblyAI agent.');
       setSessionKind(null);
       setPhase('error');
     }
-  }, [assemblyAgent, clearScriptTimers]);
+  }, [assemblyAgent, clearScriptTimers, handleAssemblyToolCall]);
 
   const startLiveCall = useCallback(async () => {
     const attempt = connectionAttemptRef.current + 1;
@@ -915,6 +961,33 @@ function CallStation({
                   </button>
                 </div>
                 <Meter value={micLevel * 100} max={100} color="var(--safe)" />
+
+                {sessionKind === 'assembly' && proposalBanner && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className={cn(
+                      'flex items-start gap-2 rounded-md border p-3 text-xs leading-relaxed',
+                      proposalBanner.blocked
+                        ? 'border-critical/40 bg-critical/15 text-critical-soft'
+                        : 'border-safe/40 bg-safe/10 text-ink-2',
+                    )}
+                    title="The voice agent called the propose_incident_update client tool. Severity is escalate-only: the local safety floor overrules any downgrade."
+                  >
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    {proposalBanner.blocked ? (
+                      <p>
+                        <span className="font-bold uppercase">Agent proposed {proposalBanner.proposed?.toUpperCase()} → held at {proposalBanner.applied.toUpperCase()} by the safety floor.</span>{' '}
+                        The console, not the model, owns the grade.
+                      </p>
+                    ) : (
+                      <p>
+                        <span className="font-bold uppercase">Agent proposal applied — severity {proposalBanner.applied.toUpperCase()}.</span>{' '}
+                        Equal to or above the local floor, so it stands.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

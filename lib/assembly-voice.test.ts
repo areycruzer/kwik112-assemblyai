@@ -49,7 +49,9 @@ test('buildSessionUpdate: inline config shape', () => {
     tools: [
       {
         type: 'function',
-        function: { name: 'propose_incident_update', description: 'x', parameters: { type: 'object' } },
+        name: 'propose_incident_update',
+        description: 'x',
+        parameters: { type: 'object' },
       },
     ],
   });
@@ -84,7 +86,7 @@ test('reducer: barge-in, audio, done, tool call, ended, error', () => {
   assert.equal(reduceAgentEvent(base, { type: 'input.speech.started' }).action?.kind, 'barge_in');
   assert.equal(reduceAgentEvent(base, { type: 'reply.audio', data: 'QQ==' }).action?.kind, 'agent_audio');
   assert.equal(reduceAgentEvent(base, { type: 'reply.done', status: 'interrupted' }).action?.kind, 'reply_done');
-  const tc = reduceAgentEvent(base, { type: 'tool.call', tool_call_id: 't1', name: 'n', arguments: { a: 1 } });
+  const tc = reduceAgentEvent(base, { type: 'tool.call', call_id: 't1', name: 'n', arguments: { a: 1 } });
   assert.equal(tc.action?.kind, 'tool_call');
   assert.equal((tc.action as any).toolCallId, 't1');
   assert.equal(reduceAgentEvent(base, { type: 'session.ended' }).action?.kind, 'ended');
@@ -99,19 +101,20 @@ test('tool result queue: results flush only when reply.done is the latest event'
   assert.equal(q.size, 1);
   // An unrelated event after the push blocks the flush…
   q.observe('transcript.user');
-  assert.deepEqual(q.observe('reply.done'), [{ tool_call_id: 't1', output: { recorded: true } }]);
+  assert.deepEqual(q.observe('reply.done'), [{ callId: 't1', output: { recorded: true } }]);
   assert.equal(q.size, 0);
-  // …and a result pushed after reply.done waits for the next one.
-  q.push('t2', 42);
+  // …and a result pushed after reply.done already fired flushes at once:
+  // the agent must not wait for a next turn that does not exist.
+  assert.deepEqual(q.push('t2', 42), [{ callId: 't2', output: 42 }]);
+  assert.equal(q.size, 0);
   assert.deepEqual(q.observe('transcript.agent'), []);
-  assert.equal(q.size, 1);
 });
 
-test('buildToolResult shape', () => {
+test('buildToolResult matches the wire contract (call_id + stringified result)', () => {
   assert.deepEqual(buildToolResult('t1', { ok: true }), {
     type: 'tool.result',
-    tool_call_id: 't1',
-    output: { ok: true },
+    call_id: 't1',
+    result: '{"ok":true}',
   });
 });
 
@@ -122,4 +125,19 @@ test('audio worklet sources parse as plain JavaScript (no TS annotations leak in
     assert.equal(typeof code, 'string', `${name} worklet source must be exported as a string`);
     assert.doesNotThrow(() => new vm.Script(code), `${name} worklet must be valid plain JS`);
   }
+});
+
+test('production intake tool def passes the flat wire shape', async () => {
+  const { ASSEMBLY_INTAKE_TOOL, assemblySessionConfig } = await import('./voice-launch.ts');
+  const msg = buildSessionUpdate(assemblySessionConfig() as never);
+  const tools = msg.session.tools as Array<Record<string, unknown>>;
+  assert.equal(tools.length, 1);
+  assert.equal(tools[0].type, 'function');
+  assert.equal(tools[0].name, 'propose_incident_update');
+  assert.equal(typeof tools[0].description, 'string');
+  const params = tools[0].parameters as { required?: string[]; properties?: Record<string, unknown> };
+  assert.deepEqual(params.required, ['incident_type', 'severity']);
+  assert.ok(params.properties && 'severity' in params.properties);
+  assert.ok(!('function' in tools[0]), 'no OpenAI-style wrapper on the wire');
+  assert.equal(ASSEMBLY_INTAKE_TOOL.name, 'propose_incident_update');
 });
