@@ -1,0 +1,65 @@
+# Kwik 112
+
+> Kwik 112 demonstrates ring-time middleware for India's 112 emergency line. Its proposed citizen interface is the dial pad, including a keypad phone on a voice-capable 2G network; no citizen app, URL, or reading is required. This browser build emulates the intake and has no telephone-network integration. Hindi, Hinglish, and English today. Deterministic rules grade first; optional model refinement may escalate but never lower the severity floor. Human operators control dispatch.
+
+Independent browser-based demonstration. Not an official 112, ERSS, Government of India, or C-DAC service. No live emergency-network integration. All incident data is synthetic. The AI never dispatches; a human does.
+
+## Evaluate this build (no login, no credentials, no setup)
+
+- For judges — three one-click paths: /for-judges
+- Place a test 112 call: /dashboard?startCall=1#voice-station
+- Dispatcher console: /dashboard
+- Held-out benchmark rendered from committed results: /benchmark
+- Repository recording script (uploaded-video captions not yet verified): /transcript
+- Demo video: https://youtu.be/JdzAXL08_24 (trim to the 120s cap pending)
+
+## Development regression suite (corpus v1.0.0, held_out split, 30 synthetic calls)
+
+- Critical recall: 100% (9/9; Wilson 95% lower bound 0.70)
+- Incident type accuracy: 60% (18/30)
+- Severity accuracy: 60% (18/30)
+- Under-triage: 23.3% (7/30) · Over-triage: 16.7% (5/30)
+- Location accuracy: 100% (25/25) · Threat detection: 100% (3/3)
+- Local latency: p50 ~0.042ms · p95 ~5.219ms
+- Reproduce: `npm install && npm run evaluate:local`
+- CI re-runs tests, evaluation and build; critical recall must remain 1.0. Latency is from the committed run and varies by machine. This is not field or clinical validation.
+- Location accuracy measures expected words in extracted text, not GPS or geocoding accuracy. Threat detection measures required terms, not an unrestricted threat-recognition rate.
+
+## Architecture facts an evaluator can verify
+
+- Deterministic multilingual rules grade first in-browser. Recognized high-risk phrases activate tested severity floors; unrecognized wording can still be missed, as the published under-triage rate shows.
+- Optional LLM refinement (GLM primary; OpenAI-compatible fallback via OPENAI_API_KEY) may only escalate severity — enforced in code with regression tests, not just prompted.
+- Caller transcripts are treated as untrusted data; prompt-injection cases are part of the committed test suite.
+- Emotion (prosody) can sharpen priority inside a severity band but can never cross a band boundary (severityBandCeiling).
+- Human checkpoints INTAKE → DISPATCH → RESOLUTION; overrides require a written note. The session-local demo audit uses localStorage and persists across browser sessions until storage is cleared; it is not a production record store.
+- Provenance labels everywhere: local-rules / model / fallback; emotion MEASURED / SIMULATED / absent.
+- Possible prank prosody is a human-review annotation only. Calls are not automatically discarded or removed from the queue by this flag.
+- Live audio goes to Hume. Optional refinement sends transcripts to the configured model provider; geocoding may send location text to Nominatim. Use synthetic scenarios only.
+
+## Built with Codex; runtime providers disclosed
+
+- Codex and coding agents assisted implementation and review; see CODEX_LOG.md and Git history.
+- GLM 4.5 Flash is the deliberate free-tier refinement choice. LLM_PROVIDER=auto|glm|openai selects the configured provider; the OpenAI path defaults to gpt-4o-mini with OPENAI_API_KEY. OPENAI_BASE_URL supports compatible endpoints. No OpenAI Realtime deployment is claimed.
+- Hume EVI supplies optional live voice and prosody estimates. Scripted emotion frames are simulated. Fleet positions and ETAs are synthetic; OSRM routes have a straight-line fallback.
+
+## Problem evidence (sourced)
+
+- Telangana: reported ~0.28% genuine emergencies among ~16 lakh daily calls across combined 112/Dial 100, citing police data (25 June 2026): https://the420.in/telangana-emergency-calls-ai-tools-erss-dial-112-genuine-calls-dispatch-2026/
+- MHA average answer-speed target below 15 seconds (NERS guidelines, 2015, page 20): https://www.mha.gov.in/sites/default/files/2022-08/NERSGuideline_2100815%5B1%5D.pdf
+- Reported national emergency response ~18 minutes (DGP statement, 6 August 2026). Vehicle response is not telephone answer time: https://www.newindianexpress.com/amp/story/states/telangana/2026/Aug/06/telangana-police-launch-30-faster-ai-driven-emergency-response-system-dial-112
+- Delhi: reported ~10,000 blank calls of 15,672 daily calls; the report also describes existing IVR filtering (1 October 2019): https://timesofindia.indiatimes.com/city/delhi/112-number-gets-10000-blank-calls-a-day-thanks-to-phones-power-button/articleshow/71383219.cms
+- SaveLIFE Foundation v. Union of India, W.P.(C) 726/2024, order dated 26 May 2026, official marker 2026 INSC 567: integrate emergency helplines into 112 within three months. The stated window has closed (calendar inference, not verification of implementation): https://api.sci.gov.in/supremecourt/2024/49959/49959_2024_3_60_71558_FinalOrder_26-May-2026.pdf
+
+## Prior art and safety context
+
+- VANKI supports multilingual emergency communication in Bengaluru (30 April 2026): https://timesofindia.indiatimes.com/city/bengaluru/first-in-india-ai-powered-namma-112-goes-multilingual/amp_articleshow/130620599.cms
+- TG-ERSS reports AI-assisted handling and filtering. These reports do not publish an executable severity floor or grading corpus; Kwik publishes those artifacts. This does not establish whether other systems have equivalent safety controls.
+- A Danish randomized trial found no significant improvement in dispatcher cardiac-arrest recognition in its primary comparison; this motivates rules-first grading and human oversight (Blomberg et al., 2021): https://pubmed.ncbi.nlm.nih.gov/33404620/
+
+## Repository
+
+- Source (MIT): https://github.com/areycruzer/kwik-112
+- README with reproduce commands: https://github.com/areycruzer/kwik-112/blob/main/README.md
+- Raw machine-readable results: https://github.com/areycruzer/kwik-112/blob/main/evaluation/results/local-held_out-latest.json
+- Codex/OpenAI contribution log: https://github.com/areycruzer/kwik-112/blob/main/CODEX_LOG.md
+- Video captions: /kwik-112-round2.vtt

@@ -1,0 +1,35 @@
+WEBVTT
+
+00:00.000 --> 00:08.000
+Every Indian already knows how to use it: dial 112.
+The caller needs no app or screen.
+
+00:08.000 --> 00:30.000
+Kwik 112 asks one short question at a time:
+location, immediate danger, what happened, and how many people.
+
+00:30.000 --> 00:44.000
+Transcript, language, SIMULATED prosody provenance,
+and the current rules grade reach the console during the call.
+
+00:44.000 --> 00:58.000
+The local grade is immediate. Optional structured refinement
+may escalate severity, but cannot downgrade the deterministic floor.
+
+00:58.000 --> 01:16.000
+A human confirms intake, reads conservative guidance,
+selects units, and makes every dispatch decision.
+
+01:16.000 --> 01:29.000
+Transcript source, prosody provenance, triage engine,
+override notes, units, and resolution remain auditable.
+
+01:29.000 --> 01:46.000
+Held-out local benchmark: critical recall 100%, 9 of 9;
+type and severity 60%; under-triage 23.3%; over-triage 16.7%;
+p50 about 0.042ms and p95 about 5.219ms.
+
+01:46.000 --> 01:55.000
+Synthetic corpus, no live 112 integration. Codex assisted implementation
+and review; the OpenAI SDK supports optional structured refinement.
+Human dispatch stays in command.

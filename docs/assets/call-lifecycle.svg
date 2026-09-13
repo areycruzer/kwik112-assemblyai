@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 300" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="920" height="300" fill="#ffffff"/>
+  <text x="460" y="34" text-anchor="middle" font-size="19" font-weight="700" fill="#0f172a">One call, end to end</text>
+
+  <g font-size="11">
+    <rect x="28"  y="70" width="120" height="64" rx="9" fill="#eff6ff" stroke="#3b82f6"/>
+    <text x="88" y="96" text-anchor="middle" font-weight="700" fill="#1d4ed8">1 · RING</text>
+    <text x="88" y="114" text-anchor="middle" fill="#334155">AI answers &lt; 15 s</text>
+
+    <rect x="172" y="70" width="120" height="64" rx="9" fill="#eff6ff" stroke="#3b82f6"/>
+    <text x="232" y="96" text-anchor="middle" font-weight="700" fill="#1d4ed8">2 · INTAKE</text>
+    <text x="232" y="114" text-anchor="middle" fill="#334155">transcript + prosody</text>
+
+    <rect x="316" y="70" width="120" height="64" rx="9" fill="#fef2f2" stroke="#b91c1c"/>
+    <text x="376" y="96" text-anchor="middle" font-weight="700" fill="#b91c1c">3 · GRADE</text>
+    <text x="376" y="114" text-anchor="middle" fill="#334155">rules, in milliseconds</text>
+
+    <rect x="460" y="70" width="120" height="64" rx="9" fill="#f5f3ff" stroke="#7c3aed"/>
+    <text x="520" y="96" text-anchor="middle" font-weight="700" fill="#6d28d9">4 · REFINE</text>
+    <text x="520" y="114" text-anchor="middle" fill="#334155">LLM, escalate-only</text>
+
+    <rect x="604" y="70" width="120" height="64" rx="9" fill="#f0fdf4" stroke="#16a34a"/>
+    <text x="664" y="96" text-anchor="middle" font-weight="700" fill="#15803d">5 · CARD</text>
+    <text x="664" y="114" text-anchor="middle" fill="#334155">map + route + fusion</text>
+
+    <rect x="748" y="70" width="140" height="64" rx="9" fill="#fffbeb" stroke="#d97706"/>
+    <text x="818" y="96" text-anchor="middle" font-weight="700" fill="#92400e">6 · HUMAN GATES</text>
+    <text x="818" y="114" text-anchor="middle" fill="#78350f">3 checkpoints · written reasons</text>
+
+    <line x1="148" y1="102" x2="170" y2="102" stroke="#475569" stroke-width="1.5" marker-end="url(#a2)"/>
+    <line x1="292" y1="102" x2="314" y2="102" stroke="#475569" stroke-width="1.5" marker-end="url(#a2)"/>
+    <line x1="436" y1="102" x2="458" y2="102" stroke="#475569" stroke-width="1.5" marker-end="url(#a2)"/>
+    <line x1="580" y1="102" x2="602" y2="102" stroke="#475569" stroke-width="1.5" marker-end="url(#a2)"/>
+    <line x1="724" y1="102" x2="746" y2="102" stroke="#475569" stroke-width="1.5" marker-end="url(#a2)"/>
+  </g>
+
+  <!-- audit trail bar -->
+  <rect x="28" y="176" width="860" height="40" rx="8" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="458" y="201" text-anchor="middle" font-size="11" fill="#334155">The call writes its own record — every grade, refinement, gate, override, and routing decision lands on an auditable timeline</text>
+
+  <text x="460" y="252" text-anchor="middle" font-size="10.5" fill="#475569">Failure behaviour: any model timeout, malformed JSON, or missing key silently preserves the deterministic grade — the floor is the product.</text>
+  <text x="460" y="270" text-anchor="middle" font-size="10" fill="#94a3b8">demo: /dashboard?demo=golden replays steps 1–6, including a blocked injection attempt, in one click</text>
+</svg>

@@ -1,0 +1,265 @@
+/* Must precede @import "tailwindcss": Tailwind v4 expands into real rules,
+   and Lightning CSS drops any @import that follows a rule. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+/* Kwik 112 design system.
+   Neutral grey surfaces with vivid saturated signal colour, extracted from the
+   product's own Figma component library. Flat surfaces, 1px rules, no glow,
+   no blur. */
+:root {
+  --ground: #1E1E1E;
+  --panel: #2D2D2D;
+  --panel-raised: #373636;
+  --rule: #3B3B3B;
+  --rule-strong: #4B4B4B;
+  --deep: #171717;
+
+  --ink: #F2F2F2;
+  --ink-2: #B0B0B0;
+  --ink-3: #9F9F9F;
+  --ink-4: #808080;
+
+  --accent: #69D2FF;
+  --accent-dim: #49B5E2;
+  --accent-bright: #13E3FF;
+  /* Accent channels, so an alpha fill can be expressed as rgb(var()/a) directly.
+     The design system bans dynamic colour blending in class names; keeping the
+     refine-flash keyframe off it too lets the forbidden-pattern grep stay clean. */
+  --accent-rgb: 105 210 255;
+  /* Channels for --critical, so alpha compositing needs no colour function. */
+  --critical-rgb: 244 0 0;
+
+  --safe: #47FF85;
+  --mild: #FABC1F;
+  --mild-dim: #C0931F;
+  --critical: #F40000;
+  --critical-bright: #FF4E4E;
+  --critical-soft: #FF859B;
+  --critical-bg: #611717;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-deep: var(--deep);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-bright: var(--accent-bright);
+  --color-safe: var(--safe);
+  --color-mild: var(--mild);
+  --color-mild-dim: var(--mild-dim);
+  --color-critical: var(--critical);
+  --color-critical-bright: var(--critical-bright);
+  --color-critical-soft: var(--critical-soft);
+  --color-critical-bg: var(--critical-bg);
+  --font-sans: var(--font-sans);
+
+  /* The only permitted type scale. */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbars are hidden console-wide. This is a full-bleed operations surface
+   with a scrolling region in almost every panel - the incident queue, the unit
+   roster, each Kanban column, and the board's own column row - and the native
+   bars read as chrome laid over the design rather than part of it.
+
+   Hiding, not disabling: every region still scrolls by wheel, trackpad, touch,
+   arrow keys, Page Up/Down and Home/End, and keyboard focus still scrolls a
+   focused control into view. The cost is that a scrollable region no longer
+   advertises itself, which is why the panels that scroll are the ones a
+   dispatcher already knows are lists. */
+* {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* legacy Edge */
+}
+*::-webkit-scrollbar {          /* Chromium, WebKit */
+  width: 0;
+  height: 0;
+}
+
+/* Every figure that sits in a column or updates in place. */
+.tnum, table { font-variant-numeric: tabular-nums; }
+
+/* Uppercase labels. */
+.label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Leaflet: satellite basemap. The tiles render at their true colour so the
+   imagery stays legible under the triangle markers and their name plates. */
+.leaflet-container { background: var(--deep); font-family: var(--font-sans); }
+.leaflet-control-attribution {
+  background: rgba(23, 23, 23, 0.8) !important;
+  color: var(--ink-3) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: var(--ink-2) !important; }
+
+/* Popup chrome. Leaflet's own leaflet.css is injected by the component *after*
+   globals.css, so at equal specificity its light-theme defaults (white wrapper,
+   white tip, grey glyphs) win the cascade and light-grey text renders on white.
+   The popup markup carries the `kwik-map-popup` class (bindPopup className), so
+   every rule below scopes through it to out-specify Leaflet without !important:
+   the wrapper/tip beat `.leaflet-popup-content-wrapper` (0,1,0) at (0,2,0), and
+   the close button beats `.leaflet-container a.leaflet-popup-close-button`
+   (0,2,1) at (0,3,1). */
+.kwik-map-popup .leaflet-popup-content-wrapper,
+.kwik-map-popup .leaflet-popup-tip {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  box-shadow: none;
+}
+/* The tip is a rotated square: kill its shadow so no white triangle shows. */
+.kwik-map-popup .leaflet-popup-tip { border: none; }
+.leaflet-popup-content { margin: 0; padding: 8px; }
+.leaflet-container .kwik-map-popup a.leaflet-popup-close-button {
+  color: var(--ink-3);
+}
+.leaflet-container .kwik-map-popup a.leaflet-popup-close-button:hover,
+.leaflet-container .kwik-map-popup a.leaflet-popup-close-button:focus {
+  color: var(--ink);
+}
+
+/* Map symbols get a soft drop shadow. The shadow, not a heavy outline, is
+   what separates a marker from busy satellite imagery — it grounds the mark on
+   the terrain while the off-white rim keeps its edge crisp. Scoped to the map
+   marker class so the same symbols stay flat inside panels and lists. */
+.kwik-map-marker svg {
+  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.55));
+}
+
+/* Marker names show on hover, not permanently, so the map is not buried under
+   its own labels. Leaflet paints tooltips as a white box with a black border by
+   default; scope through `.leaflet-container` to out-specify that without
+   !important, and hide the callout tip, which cannot be recoloured cleanly. */
+.leaflet-container .kwik-map-tooltip {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.leaflet-container .kwik-map-tooltip::before { display: none; }
+
+/* Zoom control lives under .leaflet-container (not the popup), where Leaflet's
+   `.leaflet-bar a` (0,2,0) paints it white-on-white. Scope through the container
+   to reach (0,3,0) and (0,4,0) for hover, keeping the dark panel + ink glyphs. */
+.leaflet-container .leaflet-control-zoom a {
+  background-color: var(--panel);
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule-strong);
+}
+.leaflet-container .leaflet-control-zoom a:hover,
+.leaflet-container .leaflet-control-zoom a:focus {
+  background-color: var(--panel-raised);
+  color: var(--ink);
+}
+.leaflet-container .leaflet-control-zoom a.leaflet-disabled {
+  background-color: var(--panel);
+  color: var(--ink-4);
+}
+
+/* Visually hidden, but read aloud. Used for the live region that announces a
+   new critical call: the message must reach a screen reader without taking a
+   corner of a console that has no spare corners. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A newly arrived critical incident. Three pulses, then it settles: an arrival
+   cue is not a status, and a row left unactioned must not flash for the rest of
+   the shift. The colour is the critical channel at low alpha, never a hardcoded
+   hex and never a dynamic colour-blend function. */
+@keyframes incident-arrived-pulse {
+  0%, 100% { background-color: transparent; border-color: var(--rule); }
+  50%      { background-color: rgb(var(--critical-rgb) / 0.18); border-color: var(--critical); }
+}
+.incident-arrived {
+  animation: incident-arrived-pulse 1.1s ease-in-out 3;
+}
+/* Motion is the cue, but it must not be the ONLY cue, and it must not move for
+   anyone who asked it not to. A steady critical border says the same thing. */
+@media (prefers-reduced-motion: reduce) {
+  .incident-arrived {
+    animation: none;
+    border-color: var(--critical);
+  }
+}
+
+/* Refinement flash. When the model upgrades a local-rules grade in place, each
+   field the model actually changed flashes once, in --accent at low alpha, then
+   settles back. The colour is drawn from the accent-channel token at 0.4 alpha,
+   never a hardcoded hex and never a dynamic colour-blend function. */
+@keyframes refine-flash {
+  0%   { background-color: rgb(var(--accent-rgb) / 0.4); }
+  100% { background-color: transparent; }
+}
+.refine-flash {
+  animation: refine-flash 500ms ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* No flash under reduced motion: the "this field changed" signal survives as a
+     persistent 2px accent left border instead, so the information is never lost
+     to a reader who has opted out of animation. */
+  .refine-flash {
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+  }
+}
