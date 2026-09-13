@@ -15,10 +15,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AssemblyAction, AssemblySessionConfig, ReducerState } from './assembly-voice.ts';
 import {
-  AssemblyAction,
-  AssemblySessionConfig,
-  ReducerState,
+  CAPTURE_WORKLET_SOURCE,
+  PLAYBACK_WORKLET_SOURCE,
   ToolResultQueue,
   buildSessionUpdate,
   buildToolResult,
@@ -34,77 +34,6 @@ interface StartOptions {
   /** Handle a client tool call; return the result payload (sync or async). */
   onToolCall?: (name: string, args: unknown) => unknown | Promise<unknown>;
 }
-
-const CAPTURE_WORKLET = `
-class KwikCaptureProcessor extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this._ratio = sampleRate / ${WIRE_RATE};
-    this._carry = null;
-  }
-  process(inputs) {
-    const ch = inputs[0] && inputs[0][0];
-    if (!ch) return true;
-    let buf = this._carry ? Float32Array.from([...this._carry, ...ch]) : Float32Array.from(ch);
-    const take = Math.floor((buf.length - 1) / this._ratio);
-    if (take <= 0) { this._carry = buf; return true; }
-    const out = new Float32Array(take);
-    let pos = 0;
-    for (let i = 0; i < take; i++) {
-      const idx = Math.floor(pos), frac = pos - idx;
-      out[i] = buf[idx] + (buf[idx + 1] - buf[idx]) * frac;
-      pos += this._ratio;
-    }
-    this._carry = buf.subarray(Math.floor(pos));
-    const pcm = new Int16Array(take);
-    for (let i = 0; i < take; i++) {
-      const s = Math.max(-1, Math.min(1, out[i]));
-      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-    this.port.postMessage(pcm.buffer, [pcm.buffer]);
-    return true;
-  }
-}
-registerProcessor('kwik-capture', KwikCaptureProcessor);
-`;
-
-const PLAYBACK_WORKLET = `
-class KwikPlaybackProcessor extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this._ring = new Float32Array(sampleRate * 30);
-    this._write = 0; this._read = 0; this._have = 0;
-    this._step = ${WIRE_RATE} / sampleRate;
-    this._frac = 0; this._prev = 0;
-    this.port.onmessage = (e) => {
-      if (e.data === 'stop') {
-        this._write = this._read = this._have = 0;
-        this._frac = 0; this._prev = 0;
-        return;
-      }
-      const pcm = new Int16Array(e.data);
-      for (let i = 0; i < pcm.length; i++) {
-        this._ring[this._write] = pcm[i] / 32768;
-        this._write = (this._write + 1) % this._ring.length;
-        if (this._have < this._ring.length) this._have++;
-      }
-    };
-  }
-  process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
-    const ch = outputs[0] && outputs[0][0];
-    if (!ch) return true;
-    for (let i = 0; i < ch.length; i++) {
-      if (this._have < 2) { ch[i] = 0; this._prev = 0; this._frac = 0; continue; }
-      while (this._frac >= 1) { this._prev = this._ring[this._read]; this._read = (this._read + 1) % this._ring.length; this._have--; this._frac--; }
-      const next = this._ring[this._read];
-      ch[i] = this._prev + (next - this._prev) * this._frac;
-      this._frac += this._step;
-    }
-    return true;
-  }
-}
-registerProcessor('kwik-playback', KwikPlaybackProcessor);
-`;
 
 function blobUrl(code: string): string {
   return URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
@@ -231,8 +160,8 @@ export function useAssemblyVoiceAgent(onAction: (action: AssemblyAction) => void
       playbackCtxRef.current = playbackCtx;
       await Promise.all([captureCtx.resume(), playbackCtx.resume()]);
 
-      const captureUrl = blobUrl(CAPTURE_WORKLET);
-      const playbackUrl = blobUrl(PLAYBACK_WORKLET);
+      const captureUrl = blobUrl(CAPTURE_WORKLET_SOURCE);
+      const playbackUrl = blobUrl(PLAYBACK_WORKLET_SOURCE);
       await Promise.all([
         captureCtx.audioWorklet.addModule(captureUrl),
         playbackCtx.audioWorklet.addModule(playbackUrl),
