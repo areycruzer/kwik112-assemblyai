@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Held-out benchmark (critical recall must stay 1.0)
+        run: |
+          npm run evaluate:local
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            const results = JSON.parse(readFileSync('evaluation/results/local-held_out-latest.json', 'utf8'));
+            const recall = results.metrics.critical_recall;
+            if (recall !== 1) {
+              console.error('FAIL: critical recall regressed to ' + recall + ' (expected 1.0)');
+              process.exit(1);
+            }
+            console.log('Critical recall held at 1.0 (' + results.metrics.critical_true_positives + '/9).');
+          "
+
+      - name: Production build
+        run: npm run build

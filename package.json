@@ -1,0 +1,39 @@
+{
+  "name": "kwik112-assemblyai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "test": "node --test \"lib/**/*.test.ts\"",
+    "evaluate:local": "node scripts/evaluate-triage.ts --mode local --split held_out",
+    "evaluate:held-out": "node scripts/evaluate-triage.ts --mode hybrid --split held_out",
+    "evaluate:fusion": "node scripts/evaluate-fusion.ts",
+    "check:landing": "node scripts/check-landing-layout.mjs",
+    "check:layout": "node scripts/check-dashboard-layout.mjs",
+    "check:raw-html": "node scripts/check-raw-html.mjs"
+  },
+  "dependencies": {
+    "@humeai/voice-react": "0.3.0-beta.6",
+    "clsx": "^2.1.1",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.545.0",
+    "next": "15.5.24",
+    "openai": "^6.2.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "tailwind-merge": "^3.3.1",
+    "winston": "^3.15.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.20",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "description": "Kwik 112 on AssemblyAI: a live voice agent for emergency-call intake, under an escalate-only deterministic safety floor."
+}

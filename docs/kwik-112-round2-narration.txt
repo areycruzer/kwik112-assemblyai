@@ -1,0 +1,25 @@
+Every Indian already knows how to use it: dial 112.
+The caller needs no app or screen.
+
+Kwik 112 asks one short question at a time:
+location, immediate danger, what happened, and how many people.
+
+Transcript, language, SIMULATED prosody provenance,
+and the current rules grade reach the console during the call.
+
+The local grade is immediate. Optional structured refinement
+may escalate severity, but cannot downgrade the deterministic floor.
+
+A human confirms intake, reads conservative guidance,
+selects units, and makes every dispatch decision.
+
+Transcript source, prosody provenance, triage engine,
+override notes, units, and resolution remain auditable.
+
+Held-out local benchmark: critical recall 100%, 9 of 9;
+type and severity 60%; under-triage 23.3%; over-triage 16.7%;
+p50 about 0.042ms and p95 about 5.219ms.
+
+Synthetic corpus, no live 112 integration. Codex assisted implementation
+and review; the OpenAI SDK supports optional structured refinement.
+Human dispatch stays in command.
