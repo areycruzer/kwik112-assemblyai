@@ -9,7 +9,7 @@
 import OpenAI from 'openai';
 import { logger } from './logger.ts';
 
-export type LlmProvider = 'glm' | 'openai' | 'none';
+export type LlmProvider = 'glm' | 'openai' | 'assemblyai' | 'none';
 
 /** GLM's China host is materially faster than the international one from most
  *  regions we serve; override with GLM_BASE_URL if that stops being true. */
@@ -28,6 +28,26 @@ export interface LlmConfig {
   /** GLM 4.5 reasons by default, which triples token use and latency for a
    *  task that needs extraction rather than deliberation. */
   disableThinking: boolean;
+  /** Whether the provider accepts response_format json_object. The AssemblyAI
+   *  gateway's free-tier qwen model rejects it, so that path relies on the
+   *  prompt plus tolerant extraction instead. */
+  jsonMode: boolean;
+}
+
+/** Extract the first JSON object from a completion that may be fenced or
+ *  wrapped in prose. Returns null when no object is present. */
+export function extractJsonObject(text: string): any | null {
+  const trimmed = String(text ?? '').trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1] : trimmed;
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if (start === -1 || end <= start) return null;
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    return null;
+  }
 }
 
 export function resolveLlm(): LlmConfig {
@@ -38,7 +58,10 @@ export function resolveLlm(): LlmConfig {
   // OpenAI-compatible endpoint when GLM is unconfigured.
   const forced = (process.env.LLM_PROVIDER || 'auto').toLowerCase();
 
-  if (glmKey && forced !== 'openai') {
+  const assemblyaiKey = process.env.ASSEMBLYAI_API_KEY;
+  const ASSEMBLYAI_DEFAULT_MODEL = 'qwen3.5-4b-32k-fast';
+
+  if (glmKey && forced !== 'openai' && forced !== 'assemblyai') {
     return {
       provider: 'glm',
       client: new OpenAI({
@@ -47,10 +70,28 @@ export function resolveLlm(): LlmConfig {
       }),
       model: process.env.GLM_MODEL || GLM_DEFAULT_MODEL,
       disableThinking: true,
+      jsonMode: true,
     };
   }
 
-  if (openaiKey && forced !== 'glm') {
+  // The AssemblyAI LLM Gateway (OpenAI-SDK compatible). Forced explicitly, or
+  // used automatically when no other provider is configured. The free-tier
+  // qwen model has no response_format support, so jsonMode is off and parsing
+  // goes through extractJsonObject.
+  if (assemblyaiKey && (forced === 'assemblyai' || (!glmKey && !openaiKey))) {
+    return {
+      provider: 'assemblyai',
+      client: new OpenAI({
+        apiKey: assemblyaiKey,
+        baseURL: process.env.ASSEMBLYAI_LLM_BASE_URL || 'https://llm-gateway.assemblyai.com/v1',
+      }),
+      model: process.env.ASSEMBLYAI_LLM_MODEL || ASSEMBLYAI_DEFAULT_MODEL,
+      disableThinking: false,
+      jsonMode: false,
+    };
+  }
+
+  if (openaiKey && forced !== 'glm' && forced !== 'assemblyai') {
     return {
       provider: 'openai',
       client: new OpenAI({
@@ -61,10 +102,11 @@ export function resolveLlm(): LlmConfig {
       }),
       model: process.env.OPENAI_MODEL || OPENAI_DEFAULT_MODEL,
       disableThinking: false,
+      jsonMode: true,
     };
   }
 
-  return { provider: 'none', client: null, model: '', disableThinking: false };
+  return { provider: 'none', client: null, model: '', disableThinking: false, jsonMode: true };
 }
 
 /** How long to wait before abandoning the model and using local rules. */
@@ -98,7 +140,7 @@ export async function requestJson(
       model: cfg.model,
       temperature,
       max_tokens: maxTokens,
-      response_format: { type: 'json_object' },
+      ...(cfg.jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -129,7 +171,12 @@ export async function requestJson(
       completionTokens: completion?.usage?.completion_tokens,
     });
 
-    return { data: JSON.parse(content), model: cfg.model };
+    const parsed = cfg.jsonMode ? JSON.parse(content) : extractJsonObject(content);
+    if (parsed === null || typeof parsed !== 'object') {
+      logger.warn('LLM content was not a JSON object', { provider: cfg.provider, model: cfg.model });
+      return null;
+    }
+    return { data: parsed, model: cfg.model };
   } catch (error) {
     logger.error('LLM request failed; caller should fall back', {
       provider: cfg.provider,
