@@ -30,6 +30,96 @@ export {
 };
 export type { TriageResult } from './triage-local.ts';
 
+// ── Agent incident proposals (the escalate-only client tool) ────────────────
+// The live voice agent may call propose_incident_update with its own read of
+// the call. The console — not the agent — owns the incident, so every field is
+// validated and severity can only ever move up: the local floor grade wins any
+// disagreement. The proposal arrives as untrusted parsed JSON (model output),
+// so anything malformed is dropped field-by-field, never trusted whole.
+
+export interface AgentIncidentProposal {
+  incident_type?: unknown;
+  severity?: unknown;
+  location_text?: unknown;
+  persons_count?: unknown;
+  hazards?: unknown;
+}
+
+export interface ProposalReconciliation {
+  /** Severity that will be applied — the floor whenever the two disagree. */
+  severity: Severity;
+  /** Parsed agent severity, or null when it was missing or malformed. */
+  proposedSeverity: Severity | null;
+  /** True when the agent tried to grade below the floor and was overridden. */
+  blocked: boolean;
+  /** Well-formed informational fields, safe to show on the incident. */
+  applied: {
+    incident_type?: string;
+    location_text?: string;
+    persons_count?: number;
+    hazards?: string[];
+  };
+}
+
+const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
+
+// The tool speaks operator language (LOW/MODERATE/HIGH/CRITICAL); the console
+// speaks internal grades (low/medium/high/critical). Both parse.
+const PROPOSED_SEVERITY_ALIASES: Record<string, Severity> = {
+  low: 'low', medium: 'medium', moderate: 'medium',
+  high: 'high', critical: 'critical',
+};
+
+function parseProposedSeverity(raw: unknown): Severity | null {
+  if (typeof raw !== 'string') return null;
+  const alias = PROPOSED_SEVERITY_ALIASES[raw.trim().toLowerCase()];
+  return alias ?? null;
+}
+
+function parseShortText(raw: unknown, max: number): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const cleaned = raw.trim();
+  return cleaned.length >= 1 && cleaned.length <= max ? cleaned : undefined;
+}
+
+function parsePersonsCount(raw: unknown): number | undefined {
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw.trim()) : NaN;
+  return Number.isInteger(value) && value >= 1 && value <= 999 ? value : undefined;
+}
+
+function parseHazards(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const items = raw
+    .map((item) => parseShortText(item, 40))
+    .filter((item): item is string => item !== undefined)
+    .slice(0, 8);
+  return items.length > 0 ? items : undefined;
+}
+
+/** @description Merge a voice-agent proposal onto the local floor grade.
+ *              Severity is escalate-only; every other field is validated and
+ *              taken only when well-formed. */
+export function reconcileAgentProposal(
+  floorSeverity: Severity,
+  raw: AgentIncidentProposal,
+): ProposalReconciliation {
+  const proposedSeverity = parseProposedSeverity(raw.severity);
+  const blocked = proposedSeverity !== null && SEVERITY_RANK[proposedSeverity] < SEVERITY_RANK[floorSeverity];
+  const severity = proposedSeverity === null || blocked ? floorSeverity : proposedSeverity;
+
+  const applied: ProposalReconciliation['applied'] = {};
+  const incidentType = parseShortText(raw.incident_type, 40);
+  if (incidentType !== undefined) applied.incident_type = incidentType;
+  const locationText = parseShortText(raw.location_text, 200);
+  if (locationText !== undefined) applied.location_text = locationText;
+  const personsCount = parsePersonsCount(raw.persons_count);
+  if (personsCount !== undefined) applied.persons_count = personsCount;
+  const hazards = parseHazards(raw.hazards);
+  if (hazards !== undefined) applied.hazards = hazards;
+
+  return { severity, proposedSeverity, blocked, applied };
+}
+
 export interface EmotionFrame {
   [emotion: string]: number;
 }
