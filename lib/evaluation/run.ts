@@ -24,7 +24,7 @@ async function configuredLlm(): Promise<ConfiguredLlm> {
     const { resolveLlm: configured } = await import('../llm.ts');
     return configured();
   } catch {
-    return { provider: 'none', client: null, model: '', disableThinking: false };
+    return { provider: 'none', client: null, model: '', disableThinking: false, jsonMode: true };
   }
 }
 
