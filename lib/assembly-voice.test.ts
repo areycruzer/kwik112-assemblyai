@@ -114,3 +114,12 @@ test('buildToolResult shape', () => {
     output: { ok: true },
   });
 });
+
+test('audio worklet sources parse as plain JavaScript (no TS annotations leak in)', async () => {
+  const vm = await import('node:vm');
+  const { CAPTURE_WORKLET_SOURCE, PLAYBACK_WORKLET_SOURCE } = await import('./assembly-voice.ts');
+  for (const [name, code] of [['capture', CAPTURE_WORKLET_SOURCE], ['playback', PLAYBACK_WORKLET_SOURCE]] as const) {
+    assert.equal(typeof code, 'string', `${name} worklet source must be exported as a string`);
+    assert.doesNotThrow(() => new vm.Script(code), `${name} worklet must be valid plain JS`);
+  }
+});
