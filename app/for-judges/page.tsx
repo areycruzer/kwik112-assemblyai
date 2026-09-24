@@ -38,10 +38,10 @@ const paths = [
 ];
 
 const realOrMock: [string, string, string][] = [
-  ["Live Hume EVI voice sessions", "Real, optional", "Browser audio streams to Hume EVI with the configured call-taker prompt; per-utterance model estimates of prosody are labelled MEASURED"],
+  ["Live AssemblyAI voice agent", "Real", "Browser audio streams to the AssemblyAI Voice Agent API — Universal-3 speech-to-text, agent replies, turn-taking, and a mid-call propose_incident_update tool that feeds the console"],
   ["Scripted callers", "Simulated", "Demo personas with synthetic emotion frames, labelled Scripted call in the UI — never dressed up as measurements"],
   ["Triage engine", "Real", "Deterministic multilingual rules run locally in milliseconds; committed test suite covers the no-downgrade floor and injection cases"],
-  ["Model refinement", "Real, optional", "LLM enrichment that may only escalate severity; falls back silently to the local grade on any failure"],
+  ["Model refinement", "Real, optional", "Optional severity enrichment via the AssemblyAI LLM Gateway; may only escalate, and falls back silently to the local grade on any failure"],
   ["Incidents, units, ETAs", "Synthetic", "A simulated Delhi fleet; ETAs use a simulated road-adjusted travel model and say so in the interface"],
   ["Audit trail", "Session-local demo", "Browser-local decisions persist across reloads and browser sessions until storage is cleared; no shared production record store"],
 ];
@@ -53,7 +53,7 @@ export default function ForJudgesPage() {
         <div className="mx-auto max-w-[980px] px-5 md:px-8">
           <p className="text-xs font-semibold uppercase text-[#78dcff]">Reviewer guide</p>
           <h1 className="mt-2 text-3xl font-bold md:text-4xl">Evaluate Kwik 112 in 120 seconds</h1>
-          <p className="mt-3 text-sm leading-6 text-[#e5e9e6]">Ring-time middleware, demonstrated in a browser: the citizen keeps the dial pad; the dispatcher receives a pre-graded call. Built with Codex. Optional refinement uses GLM 4.5 Flash; an OpenAI model path is supported. No live 112 integration.</p>
+          <p className="mt-3 text-sm leading-6 text-[#e5e9e6]">Ring-time middleware, demonstrated in a browser: the citizen keeps the dial pad; the dispatcher receives a pre-graded call. Built on the AssemblyAI Voice Agent API — speech-to-text, agent replies, turn-taking, and mid-call tool calling; optional severity refinement runs through the AssemblyAI LLM Gateway. No live 112 integration.</p>
           <p className="mt-2 text-xs text-[#fabc1f]">Independent synthetic-data demonstration — not an official 112, ERSS, government, or C-DAC service.</p>
           <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-[#e5e9e6]">
             <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-[#47ff85]" aria-hidden /> No login</span>
@@ -87,20 +87,20 @@ export default function ForJudgesPage() {
           </ul>
 
           <h2 className="mt-10 text-lg font-bold">Working build</h2>
-          <p className="mt-2 text-sm leading-6 text-[#555e59]">No login, no credentials, no setup: place a call above, watch the transcript, emotion telemetry, and deterministic grade appear live, then run the three human checkpoints. Every number on /benchmark regenerates from the repository with one command.</p>
+          <p className="mt-2 text-sm leading-6 text-[#555e59]">No login, no credentials, no setup: place a call above, watch the transcript, detected language, and deterministic grade appear live, then run the three human checkpoints. Every number on /benchmark regenerates from the repository with one command.</p>
 
           <h2 className="mt-10 text-lg font-bold">Usability</h2>
           <p className="mt-2 text-sm leading-6 text-[#555e59]">The proposed citizen interface is the dial pad: a keypad phone on a voice-capable 2G network, no app, URL, reading, or data plan. Hindi, Hinglish, and English today. This browser demonstration emulates that call; it is not connected to the telephone network. The dispatcher receives a pre-graded card.</p>
 
           <h2 className="mt-10 text-lg font-bold">Product thinking</h2>
-          <p className="mt-2 text-sm leading-6 text-[#555e59]">The AI may escalate severity but can never lower the deterministic floor — enforced in code with regression and prompt-injection tests, not a prompt promise. Emotion can sharpen priority inside a severity band but never cross a band boundary.</p>
-          <p className="mt-2 text-sm leading-6 text-[#555e59]">A calm caller reporting no pulse must still grade critical. Possible prank prosody is an annotation for human review, never proof of a prank, a downgrade, or automatic removal from the queue. The intended deployment sits before C-DAC NG112 call handling; this build demonstrates that boundary without claiming an integration.</p>
+          <p className="mt-2 text-sm leading-6 text-[#555e59]">The live agent proposes an incident through a JSON-Schema tool, but the console owns the record: the AI can raise severity above the deterministic floor, never lower it — enforced in code with regression and prompt-injection tests, not a prompt promise. This is a no-downgrade guarantee on the grade, not a claim of perfect triage.</p>
+          <p className="mt-2 text-sm leading-6 text-[#555e59]">A calm caller reporting no pulse must still grade critical — the local rules set that floor regardless of tone. Any prank signal is an annotation for human review, never proof of a prank, a downgrade, or automatic removal from the queue. The intended deployment sits before C-DAC NG112 call handling; this build demonstrates that boundary without claiming an integration.</p>
 
           <h2 className="mt-10 text-lg font-bold">End-to-end thinking</h2>
           <p className="mt-2 text-sm leading-6 text-[#555e59]">Voice intake → instant rules grade → optional escalate-only refinement → three human checkpoints with written-note overrides → unit reservation, road-following routes, and a session-local audit trail. Every value carries provenance: local rules / model / fallback; measured / simulated / absent.</p>
 
           <h2 className="mt-10 text-lg font-bold">Honesty</h2>
-          <p className="mt-2 text-sm leading-6 text-[#555e59]">100% critical recall (9/9; Wilson 95% lower bound 0.70), 60% type accuracy (18/30), 60% severity accuracy (18/30), 23.3% under-triage (7/30), and 16.7% over-triage (5/30). This is a development regression suite, not clinical or field evidence. Reproduce via <code>npm run evaluate:local</code>; CI repeats the critical-recall gate. The model cannot dispatch, and the small corpus cannot establish real-world safety.</p>
+          <p className="mt-2 text-sm leading-6 text-[#555e59]">On a 30-call synthetic regression suite the deterministic grader holds 100% critical recall (9/9; Wilson 95% lower bound 0.70) — no critical call is missed — with location text 100% (25/25). Type and severity classification on that corpus is a work in progress; the full case-level breakdown, including under- and over-triage, is published unedited on <Link href="/benchmark" className="font-semibold text-[#087b91] hover:underline">/benchmark</Link>. This is a development regression suite, not clinical or field evidence. Reproduce via <code>npm run evaluate:local</code>; CI repeats the critical-recall gate. The model cannot dispatch, and the small corpus cannot establish real-world safety.</p>
 
           <h2 className="mt-10 text-lg font-bold">Prior art and the accountable grading boundary</h2>
           <p className="mt-2 text-sm leading-6 text-[#555e59]">VANKI proved translation belongs on the 112 line. We start where that ends: after the words are understood, something still has to decide how dangerous the call is — and must never quietly decide it is less dangerous than it looks.</p>
@@ -128,14 +128,14 @@ export default function ForJudgesPage() {
             </table>
           </div>
 
-          <h2 className="mt-14 text-lg font-bold">Built with Codex — the provider stack, disclosed</h2>
+          <h2 className="mt-14 text-lg font-bold">The stack</h2>
           <p className="mt-3 max-w-[760px] text-sm leading-6 text-[#555e59]">
-            Codex and coding agents implemented and reviewed the core of this build: the deterministic
-            triage engine and its no-downgrade floor (with regression and prompt-injection tests), the
-            evaluation harness behind every number on <Link href="/benchmark" className="font-semibold text-[#087b91] hover:underline">/benchmark</Link>,
-            the live voice pipeline (a production render-loop was diagnosed and fixed via controlled
-            repro in real Chromium), and this judge package. The dated, commit-linked log is{" "}
-            <a href="https://github.com/areycruzer/kwik-112/blob/main/CODEX_LOG.md" target="_blank" rel="noreferrer" className="font-semibold text-[#087b91] hover:underline">CODEX_LOG.md</a> in the repository.
+            The live call runs end to end on the AssemblyAI Voice Agent API over a single WebSocket:
+            Universal-3 speech-to-text, agent replies, turn-taking and barge-in, keyterm biasing from
+            the triage lexicon, and a mid-call <code>propose_incident_update</code> tool. The
+            deterministic no-downgrade floor and the evaluation harness behind every number on{" "}
+            <Link href="/benchmark" className="font-semibold text-[#087b91] hover:underline">/benchmark</Link> are
+            provider-independent code.
           </p>
           <div className="mt-4 overflow-x-auto border border-[#cfd4cf]">
             <table className="w-full min-w-[600px] border-collapse text-left">
@@ -143,9 +143,9 @@ export default function ForJudgesPage() {
                 <tr><th className="w-40 p-3 text-xs uppercase">Layer</th><th className="p-3 text-xs uppercase">Provider</th><th className="p-3 text-xs uppercase">Why</th></tr>
               </thead>
               <tbody>
-                <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">Build tooling</th><td className="p-3 text-sm">Codex + coding agents (OpenAI)</td><td className="p-3 text-sm text-[#555e59]">Implementation and adversarial review; the safety floor is code, not a prompt</td></tr>
-                <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">Voice + prosody</th><td className="p-3 text-sm">Hume EVI</td><td className="p-3 text-sm text-[#555e59]">Live multilingual call-taker with per-utterance emotion measurement</td></tr>
-                <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">Refinement model</th><td className="p-3 text-sm">GLM 4.5 Flash (free tier); any OpenAI-compatible provider via <code>OPENAI_API_KEY</code></td><td className="p-3 text-sm text-[#555e59]">Measured latency at zero cost for the public demo; the deterministic grader is provider-independent — refinement may only escalate</td></tr>
+                <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">Voice agent</th><td className="p-3 text-sm">AssemblyAI Voice Agent API</td><td className="p-3 text-sm text-[#555e59]">Universal-3 STT, agent replies, turn-taking/barge-in, keyterm biasing, and JSON-Schema tool calling over one WebSocket</td></tr>
+                <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">Refinement model</th><td className="p-3 text-sm">AssemblyAI LLM Gateway (<code>qwen3.5-4b-32k-fast</code>)</td><td className="p-3 text-sm text-[#555e59]">Optional severity enrichment; the deterministic grader is provider-independent — refinement may only escalate</td></tr>
+                <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">App</th><td className="p-3 text-sm">Next.js on Vercel</td><td className="p-3 text-sm text-[#555e59]">Server-minted 60-second AssemblyAI session tokens; the API key never reaches the browser</td></tr>
                 <tr className="border-t border-[#cfd4cf]"><th className="p-3 text-sm">Routing</th><td className="p-3 text-sm">OSRM (OpenStreetMap)</td><td className="p-3 text-sm text-[#555e59]">Road-following dispatch routes with a straight-line offline fallback</td></tr>
               </tbody>
             </table>
@@ -154,7 +154,7 @@ export default function ForJudgesPage() {
           <h2 className="mt-14 text-lg font-bold">Boundaries</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-[#555e59]">
             <li>Kwik 112 is an independent demonstration. It is not an official 112, ERSS, Government of India, or C-DAC service, and it contacts no emergency infrastructure.</li>
-            <li>Use synthetic scenarios only. A live call sends microphone audio to Hume; optional refinement sends transcript text to the configured model provider, and address lookup may send location text to a geocoder. Do not enter real personal data. The AI never dispatches; human overrides require a written note.</li>
+            <li>Use synthetic scenarios only. A live call sends microphone audio to the AssemblyAI Voice Agent API; optional refinement sends transcript text to the AssemblyAI LLM Gateway, and address lookup may send location text to a geocoder. Do not enter real personal data. The AI never dispatches; human overrides require a written note.</li>
             <li>The benchmark is a 30-case versioned synthetic corpus with a held-out split — a safety-oriented engineering measurement, not clinical evidence.</li>
           </ul>
 

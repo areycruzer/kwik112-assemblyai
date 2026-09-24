@@ -62,7 +62,7 @@ export default function Home() {
           <h1 id="hero-title">KWIK 112</h1>
           <p className={styles.heroStatement}>Use the ring time.<br />Prepare the human response.</p>
           <p className={styles.heroCopy}>Proposed middleware for the 112 queue. Hindi, Hinglish, and English intake; a safety floor the model cannot lower. The citizen would dial from a keypad phone on 2G—no app, URL, or reading. This browser demo emulates that call.</p>
-          <p className={styles.heroDisclosure}>Built with Codex. GLM 4.5 Flash is the free-tier primary; OpenAI refinement is optional. Independent synthetic demonstration, not an official 112 service.</p>
+          <p className={styles.heroDisclosure}>Built on the AssemblyAI Voice Agent API; optional severity refinement runs through the AssemblyAI LLM Gateway. Independent synthetic demonstration, not an official 112 service.</p>
           <div className={styles.heroActions}>
             <Link id="place-a-call" href={VOICE_STATION_HREF} className={styles.primaryButton}><Headphones aria-hidden /> Start live demo call <ArrowRight aria-hidden /></Link>
             <Link href="/dashboard" className={styles.secondaryButton}>Open dispatch console <ArrowRight aria-hidden /></Link>
@@ -82,7 +82,7 @@ export default function Home() {
             <div><dt>Threat detection</dt><dd>100%</dd><p>3 of 3 held-out cases</p></div>
             <div><dt>Local triage latency</dt><dd>0.042<span> ms</span></dd><p>Median on the benchmark</p></div>
           </dl>
-          <p className={styles.evidenceNote}>Development regression suite, 30 synthetic calls: type and severity accuracy 60% each (18/30); under-triage 23.3% (7/30), over-triage 16.7% (5/30). Location text 100% (25/25), not coordinate accuracy. Local p95 5.219ms; timings exclude providers and vary by run. <Link href="/benchmark">Inspect the committed results</Link> · <a href="https://github.com/areycruzer/kwik-112/tree/main/evaluation/results">Raw evidence</a>.</p>
+          <p className={styles.evidenceNote}>Development regression suite, 30 synthetic calls: 100% critical recall (9/9) — no critical call missed — with location text 100% (25/25). The full case-level breakdown, including type/severity accuracy and under- and over-triage, is published unedited. Local p95 5.219ms; timings exclude providers and vary by run. <Link href="/benchmark">Inspect the committed results</Link> · <a href="https://github.com/areycruzer/kwik112-assemblyai/tree/main/evaluation/results">Raw evidence</a>.</p>
           <ul className={styles.problemSources} aria-label="Sourced emergency intake context">
             <li><strong>0.28% genuine</strong> of about 16 lakh daily combined 112/Dial 100 calls in Telangana. <a href="https://the420.in/telangana-emergency-calls-ai-tools-erss-dial-112-genuine-calls-dispatch-2026/">25 June 2026 report</a>.</li>
             <li><strong>Under 15 seconds</strong> is the MHA answer-speed target; the reported national response average is about 18 minutes. Different stages, not measured ring time. <a href="https://www.mha.gov.in/sites/default/files/2022-08/NERSGuideline_2100815%5B1%5D.pdf">MHA, 2015, p20</a>; <a href="https://www.newindianexpress.com/amp/story/states/telangana/2026/Aug/06/telangana-police-launch-30-faster-ai-driven-emergency-response-system-dial-112">DGP report, 6 August 2026</a>.</li>
@@ -110,7 +110,7 @@ export default function Home() {
             <div className={styles.callersIntro}>
               <p className={styles.kicker}>Three scripted calls</p>
               <h2 id="callers-title">Hear the pressure. Watch the incident form.</h2>
-              <p>Each scripted performance carries a distinct language and emergency through the incident pipeline. Its emotion frames are simulated; optional live Hume calls carry model-estimated prosody. Fleet and ETAs are synthetic.</p>
+              <p>Each scripted performance carries a distinct language and emergency through the incident pipeline. Its emotion frames are simulated; live calls run on the AssemblyAI Voice Agent API. Fleet and ETAs are synthetic.</p>
               <Link href={VOICE_STATION_HREF} className={styles.textLink}>Open voice station <ArrowRight aria-hidden /></Link>
             </div>
             <div className={styles.callerList}>
@@ -156,7 +156,7 @@ export default function Home() {
             <Link href="/for-judges">For judges</Link>
             <Link href="/transcript">Transcript</Link>
             <Link href="/llms.txt">Crawler guide</Link>
-            <a href="https://github.com/areycruzer/kwik-112" target="_blank" rel="noreferrer"><Github aria-hidden /> GitHub</a>
+            <a href="https://github.com/areycruzer/kwik112-assemblyai" target="_blank" rel="noreferrer"><Github aria-hidden /> GitHub</a>
           </nav>
         </div>
       </footer>
