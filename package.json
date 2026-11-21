@@ -19,7 +19,7 @@
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.545.0",
-    "next": "15.5.24",
+    "next": "15.5.29",
     "openai": "^6.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -35,5 +35,8 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "description": "Kwik 112 on AssemblyAI: a live voice agent for emergency-call intake, under an escalate-only deterministic safety floor."
+  "description": "Kwik 112 on AssemblyAI: a live voice agent for emergency-call intake, under an escalate-only deterministic safety floor.",
+  "overrides": {
+    "postcss": "^8.5.33"
+  }
 }
