@@ -11,7 +11,7 @@ import {
 } from './symbols.ts';
 
 /** The opening of the incident pin's path, used to assert a unit has no pin. */
-const PIN_PATH_START = 'M12 21\.9C10\.4 19\.4';
+const PIN_PATH_START = 'M12 21.9C10.4 19.4';
 
 test('severity maps to the documented signal colours', () => {
   assert.equal(severityColor('critical'), '#F40000'); // CRITICAL
@@ -130,7 +130,7 @@ test('a unit is a bare glyph in its service colour, with no frame around it', ()
   // came back once and made units indistinguishable from incident pins at map
   // size, so its absence is pinned here.
   assert.doesNotMatch(svg, /<circle/);
-  assert.doesNotMatch(svg, new RegExp(PIN_PATH_START));
+  assert.ok(!svg.includes(PIN_PATH_START), 'unit symbol must not contain the incident pin path');
   assert.match(svg, /<path d="[^"]+" fill="#69D2FF"/);
 
   // A frameless glyph sits straight on satellite imagery, so it carries its
