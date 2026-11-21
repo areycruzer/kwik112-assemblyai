@@ -195,6 +195,30 @@ test('location extraction removes a leading caller pronoun', () => {
   assert.equal(result.extraction.location.address, 'Rajiv Chowk Metro');
 });
 
+test('location extraction is unchanged by repeated whitespace', () => {
+  const result = localTriage('Main   Rajiv  Chowk\tMetro   ke  paas hoon.  \n  Yahan accident hua hai.');
+
+  assert.equal(result.extraction.location.address, 'Rajiv Chowk Metro');
+});
+
+test('location extraction stays fast on long runs of spaces or repeated words', () => {
+  // Before whitespace collapsing and bounded captures, 'हम ' plus 2,000 spaces took about 35 s.
+  const transcripts = [
+    'हम ' + ' '.repeat(40_000),
+    ',' + ' '.repeat(40_000),
+    'हम '.repeat(20_000),
+    'hum '.repeat(20_000),
+    'at a '.repeat(20_000),
+  ];
+
+  for (const transcript of transcripts) {
+    const started = performance.now();
+    localTriage(transcript);
+    const elapsed = performance.now() - started;
+    assert.ok(elapsed < 1000, `${JSON.stringify(transcript.slice(0, 6))} took ${elapsed.toFixed(0)} ms`);
+  }
+});
+
 test('missing location produces an exact-address follow-up without inventing an address', () => {
   const result = localTriage('A person is unconscious and not responding.');
   assert.equal(result.extraction.location.address, undefined);

@@ -67,41 +67,54 @@ export function priorityFromSeverity(severity: Severity): 'P1' | 'P2' | 'P3' | '
   return 'P4';
 }
 
+function cutAt(value: string, pattern: RegExp): string {
+  const index = value.search(pattern);
+  return index === -1 ? value : value.slice(0, index);
+}
+
 function cleanSpokenLocation(value: string): string | undefined {
-  const cleaned = value
-    .replace(/^(?:caller\s+is|i\s+am|i'm|main|mai|mein|hum|ham)\s+/iu, '')
-    .replace(/[।.!?].*$/u, '')
-    .replace(/\b(par hain|par hai|mein hain|mein hai|hai|hain|here)\b.*$/iu, '')
-    .replace(/\b(with|and|aur|or)\b.*$/iu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let cleaned = value.replace(/^(?:caller\s+is|i\s+am|i'm|main|mai|mein|hum|ham)\s+/iu, '');
+  cleaned = cutAt(cleaned, /[।.!?]/u);
+  cleaned = cutAt(cleaned, /\b(?:par hain|par hai|mein hain|mein hai|hai|hain|here)\b/iu);
+  cleaned = cutAt(cleaned, /\b(?:with|and|aur|or)\b/iu);
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
   return cleaned.length >= 3 ? cleaned.slice(0, 240) : undefined;
 }
 
-function extractSpokenLocation(transcript: string): string | undefined {
+/**
+ * Collapses every whitespace run to a single space or newline. Several location
+ * patterns put a lazy capture next to \s+, and on long runs of spaces they
+ * backtracked for seconds (CodeQL js/polynomial-redos).
+ */
+export function collapseWhitespace(text: string): string {
+  return text.replace(/[^\S\n]+/gu, ' ').replace(/ ?\n[\n ]*/gu, '\n');
+}
+
+function extractSpokenLocation(rawTranscript: string): string | undefined {
+  const transcript = collapseWhitespace(rawTranscript);
   const patterns = [
     // A named city with a sector/phase/block wins over generic landmarks:
     // "Noida Sector 62 mein" must not collapse to "Atlanti ke paas".
     /\b((?:greater\s+noida|noida|ghaziabad|gurugram|gurgaon|faridabad|delhi|rohini|pitampura)\s+(?:sector|block|phase)\s*\d+[a-z]?)\b/iu,
     // Same sectors spoken city-last: "Sector 62 Noida mein".
     /\b((?:sector|block|phase)\s*\d+[a-z]?\s+(?:greater\s+noida|noida|ghaziabad|gurugram|gurgaon|faridabad|delhi|rohini|pitampura))\b/iu,
-    /\baddress\s+([^,.!?\n]+?)(?=\s+(?:hai|hain|is)\b|[,\.!?\n]|$)/iu,
-    /\b(?:main|hum|ham)\s+([^.!?\n]+?)\s+ke\s+(?:saamne|samne|bahar|baahar|peeche)\s+(?:hoon|hun|hain|hai)\b/iu,
-    /(?:मैं|हम)\s+([^।.!?\n]+?)\s+के\s+(?:सामने|बाहर|पीछे)\s+(?:हूँ|हूं|हैं|है)/u,
-    /\b(?:accident|crash|fire|aag|incident)\s+([^,.!?\n]+?)\s+(?:ke|k)\s+(?:paas|pass)\b/iu,
-    /(?:^|[,;]\s*)([^,.!?\n]+?)\s+(?:ke|k)\s+(?:paas|pass)\b/iu,
-    /\b(?:opposite|opp\.?)\s+([^.!?\n]+?)(?:[.!?\n]|$)/iu,
-    /\boutside\s+([^.!?\n]+?)(?:[.!?\n]|$)/iu,
-    /(?:^|[.!?]\s*)((?:gate|pillar|sector|gali)\s+[^.!?\n]+?)(?=\s+(?:par|mein|me|(?:ke|k)\s+(?:paas|pass))\b|[.!?\n]|$)/iu,
-    /\bat\s+([^.!?\n]+?)(?:[.!?\n]|$)/iu,
-    /\bnear\s+([^.!?\n]+?)(?:[.!?\n]|$)/iu,
-    /\b(?:hum|ham)\s+([^.!?\n]+?)\s+par\s+(?:hain|hai)\b/iu,
-    /(?:^|[.!?]\s*|\]\s*(?:uh[,\s]*)?)((?=[^,.!?\n]*(?:\d|\b(?:road|avenue|gate|metro|park|market|school|terminal|colony|nagar|sector|gali|thana|mandir|cinema|circle)\b))[^,.!?\n]+?)\s+(?:par|mein)\s+(?=\S)/iu,
-    /(?:^|[.!?]\s*)([^,.!?\n]+?)\s+ki\s+(?=(?:street\s*light|shop|building|park|lab)\b)/iu,
-    /(?:जगह|स्थान)\s+([^।.!?\n]+?)(?:[।.!?\n]|$)/u,
-    /हम\s+([^।.!?\n]+?)\s+पर\s+हैं/u,
-    /(?:^|।\s*)([^।,.!?\n]+?)\s+की\s+(?=(?:दुकान|इमारत|बिल्डिंग|पार्क)(?:\s|$))/u,
-    /(?:^|।\s*)((?=[^।,.!?\n]*(?:\d|(?:रोड|एवेन्यू|गेट|मेट्रो|पार्क|बाजार|स्कूल|टर्मिनल|कॉलोनी|नगर|सेक्टर|गली|थाना|मंदिर|सिनेमा|चौक)(?:\s|$)))[^।,.!?\n]+?)\s+(?:पर|में)\s+(?=\S)/u,
+    /\baddress\s+([^,.!?\n]{1,240}?)(?=\s+(?:hai|hain|is)\b|[,\.!?\n]|$)/iu,
+    /\b(?:main|hum|ham)\s+([^.!?\n]{1,240}?)\s+ke\s+(?:saamne|samne|bahar|baahar|peeche)\s+(?:hoon|hun|hain|hai)\b/iu,
+    /(?:मैं|हम)\s+([^।.!?\n]{1,240}?)\s+के\s+(?:सामने|बाहर|पीछे)\s+(?:हूँ|हूं|हैं|है)/u,
+    /\b(?:accident|crash|fire|aag|incident)\s+([^,.!?\n]{1,240}?)\s+(?:ke|k)\s+(?:paas|pass)\b/iu,
+    /(?:^|[,;]\s*)([^,.!?\n]{1,240}?)\s+(?:ke|k)\s+(?:paas|pass)\b/iu,
+    /\b(?:opposite|opp\.?)\s+([^.!?\n]{1,240}?)(?:[.!?\n]|$)/iu,
+    /\boutside\s+([^.!?\n]{1,240}?)(?:[.!?\n]|$)/iu,
+    /(?:^|[.!?]\s*)((?:gate|pillar|sector|gali)\s+[^.!?\n]{1,240}?)(?=\s+(?:par|mein|me|(?:ke|k)\s+(?:paas|pass))\b|[.!?\n]|$)/iu,
+    /\bat\s+([^.!?\n]{1,240}?)(?:[.!?\n]|$)/iu,
+    /\bnear\s+([^.!?\n]{1,240}?)(?:[.!?\n]|$)/iu,
+    /\b(?:hum|ham)\s+([^.!?\n]{1,240}?)\s+par\s+(?:hain|hai)\b/iu,
+    /(?:^|[.!?]\s*|\]\s*(?:uh[,\s]*)?)((?=[^,.!?\n]{0,240}(?:\d|\b(?:road|avenue|gate|metro|park|market|school|terminal|colony|nagar|sector|gali|thana|mandir|cinema|circle)\b))[^,.!?\n]{1,240}?)\s+(?:par|mein)\s+(?=\S)/iu,
+    /(?:^|[.!?]\s*)([^,.!?\n]{1,240}?)\s+ki\s+(?=(?:street\s*light|shop|building|park|lab)\b)/iu,
+    /(?:जगह|स्थान)\s+([^।.!?\n]{1,240}?)(?:[।.!?\n]|$)/u,
+    /हम\s+([^।.!?\n]{1,240}?)\s+पर\s+हैं/u,
+    /(?:^|।\s*)([^।,.!?\n]{1,240}?)\s+की\s+(?=(?:दुकान|इमारत|बिल्डिंग|पार्क)(?:\s|$))/u,
+    /(?:^|।\s*)((?=[^।,.!?\n]{0,240}(?:\d|(?:रोड|एवेन्यू|गेट|मेट्रो|पार्क|बाजार|स्कूल|टर्मिनल|कॉलोनी|नगर|सेक्टर|गली|थाना|मंदिर|सिनेमा|चौक)(?:\s|$)))[^।,.!?\n]{1,240}?)\s+(?:पर|में)\s+(?=\S)/u,
   ];
 
   for (const pattern of patterns) {
